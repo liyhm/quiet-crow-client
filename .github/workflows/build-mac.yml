@@ -23,6 +23,11 @@ jobs:
           node-version: '20'
           cache: 'npm'
       
+      - name: Remove npm mirror config
+        run: |
+          rm -f .npmrc
+          echo "Removed .npmrc to use official sources"
+      
       - name: Install dependencies
         run: npm install
       
