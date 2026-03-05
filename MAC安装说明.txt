@@ -1,0 +1,27 @@
+===============================================
+          Quiet Mac 版本安装说明
+===============================================
+
+如果看到"未打开 quiet"的安全提示：
+------------------------
+打开终端，输入：
+sudo xattr -rd com.apple.quarantine /Applications/quiet.app
+
+如果应用崩溃（代码签名问题）：
+------------------------
+打开终端，依次输入：
+
+1. 移除隔离属性
+sudo xattr -rd com.apple.quarantine /Applications/quiet.app
+
+2. 移除 Framework 签名
+sudo codesign --remove-signature /Applications/quiet.app/Contents/Frameworks/Electron\ Framework.framework/Versions/A/Electron\ Framework
+
+3. 移除主程序签名
+sudo codesign --remove-signature /Applications/quiet.app
+
+然后重新打开应用即可。
+
+===============================================
+只需要操作一次，之后就可以正常使用了！
+===============================================

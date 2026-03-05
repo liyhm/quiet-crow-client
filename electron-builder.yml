@@ -24,6 +24,13 @@ mac:
   target:
     - dmg
     - zip
+  category: public.app-category.social-networking
+  # 禁用代码签名，避免 Team ID 不匹配问题
+  identity: null
+  # 禁用 hardenedRuntime，避免签名问题
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
