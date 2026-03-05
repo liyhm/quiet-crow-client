@@ -217,14 +217,27 @@ const handleRetry = async () => {
   errorMessage.value = ''
   
   try {
-    const result = await window.api.updater.check()
+    // 添加 30 秒超时
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('检查更新超时，请检查网络连接')), 30000)
+    })
+    
+    const checkPromise = window.api.updater.check()
+    
+    const result = await Promise.race([checkPromise, timeoutPromise]) as any
+    
     if (!result.success) {
       status.value = 'error'
       errorMessage.value = result.error || '检查更新失败'
     }
   } catch (error) {
     status.value = 'error'
-    errorMessage.value = error instanceof Error ? error.message : '检查更新失败'
+    if (error instanceof Error) {
+      errorMessage.value = error.message
+    } else {
+      errorMessage.value = '检查更新失败'
+    }
+    console.error('检查更新错误:', error)
   } finally {
     loading.value = false
   }

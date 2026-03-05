@@ -12,21 +12,24 @@ function setupAutoUpdater(): void {
   // 设置更新服务器地址
   autoUpdater.setFeedURL({
     provider: 'generic',
-    url: 'http://159.75.182.85/updates/'
+    url: 'http://159.75.182.85/updates/',
+    channel: 'quiet'  // 明确指定 channel，会查找 quiet-latest.yml 和 quiet-latest-mac.yml
   })
 
   // 禁用自动下载，改为手动控制
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
   
-  // 禁用 SHA512 验证，只比较版本号
-  autoUpdater.autoRunAppAfterInstall = false
-  // @ts-ignore - 禁用签名验证
-  autoUpdater.disableWebInstaller = true
+  // 设置请求超时（10秒）
+  // @ts-ignore
+  autoUpdater.requestHeaders = {
+    'Cache-Control': 'no-cache'
+  }
 
   // 检查更新
   autoUpdater.on('checking-for-update', () => {
     console.log('🔍 正在检查更新...')
+    console.log('📡 更新服务器:', 'http://159.75.182.85/updates/')
     sendUpdateMessage('checking-for-update')
   })
 
@@ -57,6 +60,8 @@ function setupAutoUpdater(): void {
   // 更新错误
   autoUpdater.on('error', (error) => {
     console.error('❌ 更新错误:', error)
+    console.error('错误详情:', error.message)
+    console.error('错误堆栈:', error.stack)
     sendUpdateMessage('update-error', { message: error.message })
   })
 }
@@ -289,11 +294,25 @@ app.whenReady().then(() => {
   ipcMain.handle('updater:check', async () => {
     try {
       console.log('🔍 手动检查更新...')
-      const result = await autoUpdater.checkForUpdates()
+      console.log('📡 更新服务器:', 'http://159.75.182.85/updates/')
+      console.log('📦 当前版本:', app.getVersion())
+      
+      // 添加超时处理
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('检查更新超时（30秒）')), 30000)
+      })
+      
+      const checkPromise = autoUpdater.checkForUpdates()
+      
+      const result = await Promise.race([checkPromise, timeoutPromise]) as any
+      
+      console.log('✅ 检查更新完成:', result)
       return { success: true, updateInfo: result?.updateInfo }
     } catch (error) {
       console.error('❌ 检查更新失败:', error)
-      return { success: false, error: String(error) }
+      console.error('错误类型:', error instanceof Error ? error.constructor.name : typeof error)
+      console.error('错误消息:', error instanceof Error ? error.message : String(error))
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   })
 
