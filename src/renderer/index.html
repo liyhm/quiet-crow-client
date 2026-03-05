@@ -1,0 +1,17 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Quiet Crow</title>
+    <!-- Content Security Policy - 允许连接到后端 API -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: http://localhost:* http://127.0.0.1:* http://159.75.182.85:*; connect-src 'self' http://localhost:* http://127.0.0.1:* http://159.75.182.85:* ws://localhost:* ws://127.0.0.1:* ws://159.75.182.85:* wss://localhost:* wss://127.0.0.1:* wss://159.75.182.85:* https://api.your-domain.com wss://api.your-domain.com; media-src 'self' blob:;"
+    />
+  </head>
+
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

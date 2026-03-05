@@ -1,0 +1,180 @@
+@import 'tailwindcss';
+
+/* Silent Crow - 自定义颜色变量 */
+@theme {
+  --color-bg-void: #0A0A0C;
+  --color-bg-surface: #151518;
+  --color-bg-input: rgba(255, 255, 255, 0.03);
+  --color-bg-input-focus: rgba(255, 255, 255, 0.06);
+  --color-text-primary: #E0E0E0;
+  --color-text-muted: #85858A;
+  --color-neon-cyan: #00E5FF;
+  --color-alert-red: #FF3366;
+  --color-bubble-other: #1E1E24;
+}
+
+/* Silent Crow - 全局样式 */
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: #0A0A0C;
+  color: #E0E0E0;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'Roboto',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+/* 毛玻璃面板效果 */
+.glass-panel {
+  background-color: rgba(21, 21, 24, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* 霓虹发光效果 */
+.neon-glow {
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
+}
+
+.neon-glow-strong {
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.8);
+}
+
+/* Window draggable region */
+.draggable {
+  -webkit-app-region: drag;
+}
+
+.non-draggable {
+  -webkit-app-region: no-drag;
+}
+
+/* Scrollbar styles */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: rgba(21, 21, 24, 0.3);
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(133, 133, 138, 0.5);
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(133, 133, 138, 0.8);
+}
+
+/* 全局暗黑滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00E5FF;
+}
+
+/* 输入框样式 */
+input:focus,
+textarea:focus {
+  outline: none;
+}
+
+/* 按钮禁用状态 */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 霓虹脉冲动画 */
+@keyframes pulse-neon {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(0, 229, 255, 0.9);
+  }
+}
+
+.animate-pulse-neon {
+  animation: pulse-neon 2s ease-in-out infinite;
+}
+
+/* 跑马灯无限滚动动画 */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  width: max-content;
+  animation: marquee 20s linear infinite;
+}
+
+/* 标题栏左右两端渐变消失，营造融入感 */
+.mask-fade-edges {
+  mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+}
+
+/* 头像扫描线动画 - 极客风全息效果 */
+@keyframes scan {
+  0% {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(80px);
+    opacity: 0;
+  }
+}

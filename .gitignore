@@ -1,0 +1,30 @@
+node_modules
+out/
+dist/
+logs/
+runtime/
+.idea/
+data/
+.vscode/launch.json
+public/electron/
+public/dist/
+pnpm-lock.yaml
+.yalc/
+yalc.lock
+go/tmp/
+build/extraResources/java-app.jar
+build/extraResources/jre1.8.0_201/
+python/.venv/
+python/*.spec
+python/build/
+python/dist/
+*DS_Store
+yalc.lock
+browser/dist/
+frontend/dist/
+src/env-config.json
+
+# 环境变量文件（可选：如果生产环境配置包含敏感信息）
+# .env.production
+.env.local
+.env.*.local

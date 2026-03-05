@@ -1,0 +1,878 @@
+<template>
+  <div class="h-full w-full flex flex-col bg-bg-void">
+    <!-- Custom Title Bar (Draggable) -->
+    <div
+      class="draggable h-8 bg-bg-surface flex items-center justify-between px-4 border-b border-white/10"
+    >
+      <div class="text-sm text-text-primary">鸦口无言 - {{ connectionStatusText }}</div>
+      <div class="non-draggable flex items-center gap-2">
+        <button @click="minimizeWindow" class="bg-white/5 hover:bg-white/10 p-1 rounded text-text-muted hover:text-text-primary transition-colors">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M4 8h8v1H4z" />
+          </svg>
+        </button>
+        <button @click="maximizeWindow" class="bg-white/5 hover:bg-white/10 p-1 rounded text-text-muted hover:text-text-primary transition-colors">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M3 3v10h10V3H3zm9 9H4V4h8v8z" />
+          </svg>
+        </button>
+        <button @click="closeWindow" class="bg-alert-red/20 hover:bg-alert-red/30 text-alert-red p-1 rounded transition-colors">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
+            <path
+              d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Content: Three Column Layout -->
+    <div class="flex-1 flex overflow-hidden">
+      <!-- Left Sidebar -->
+      <Sidebar
+        :activeTab="activeTab"
+        @switchTab="handleSwitchTab"
+        @showProfile="showProfileModal = true"
+        @showSettings="showSettingsModal = true"
+      />
+
+      <!-- Middle List (Session or Contacts) -->
+      <SessionList v-if="activeTab === 'messages'" @selectSession="selectSession" />
+      <ContactsPage v-else-if="activeTab === 'contacts'" @selectContact="handleSelectContact" />
+
+      <!-- Right Workspace (Flex-1) -->
+      <div class="flex-1 flex flex-col bg-bg-void">
+        <template v-if="activeSession">
+          <!-- Chat Header -->
+          <div
+            class="h-14 bg-bg-surface border-b border-white/10 flex items-center justify-between px-4"
+          >
+            <div class="font-medium text-text-primary">{{ activeSession.name }}</div>
+            <button class="bg-white/5 hover:bg-white/10 p-2 rounded text-text-muted hover:text-neon-cyan transition-colors">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 16 16">
+                <path
+                  d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Messages Area with Drag & Drop -->
+          <div
+            ref="messagesContainer"
+            class="flex-1 overflow-y-auto p-4 scrollbar-thin"
+            @dragover.prevent="handleDragOver"
+            @dragleave="handleDragLeave"
+            @drop.prevent="handleFileDrop"
+            :class="{ 'bg-blue-50 border-2 border-dashed border-blue-400': isDragging }"
+          >
+            <div v-for="message in currentMessages" :key="message.id" class="mb-4">
+              <!-- Received Message (对方发送的) -->
+              <div v-if="message.senderId !== currentUserId" class="flex items-start gap-2">
+                <div class="w-10 h-10 rounded bg-bubble-other flex-shrink-0 flex items-center justify-center text-text-primary font-bold text-xs">
+                  {{ getDisplayName(message.senderId) }}
+                </div>
+                <div class="flex flex-col">
+                  <div class="bg-bubble-other rounded-br-2xl rounded-tr-2xl rounded-bl-sm rounded-tl-2xl px-3 py-2 max-w-md shadow-sm">
+                    <div class="text-sm text-text-primary">{{ message.content }}</div>
+                  </div>
+                  <div class="text-xs text-text-muted mt-1 ml-1">
+                    {{ formatTime(message.timestamp) }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Sent Message (自己发送的) -->
+              <div v-else class="flex items-start gap-2 justify-end">
+                <div class="flex flex-col items-end">
+                  <div 
+                    class="border border-neon-cyan bg-neon-cyan/10 rounded-bl-2xl rounded-tl-2xl rounded-br-sm rounded-tr-2xl px-3 py-2 max-w-md shadow-sm cursor-pointer hover:bg-neon-cyan/20 transition-colors relative group"
+                    @contextmenu.prevent="showMessageMenu($event, message)"
+                  >
+                    <div class="text-sm text-white">{{ message.content }}</div>
+                    <!-- 删除按钮（悬停显示） -->
+                    <button
+                      @click="handleDeleteMessage(message.id)"
+                      class="absolute -left-8 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity bg-alert-red hover:bg-alert-red/80 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs"
+                      title="删除消息"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div class="text-xs text-text-muted mt-1 mr-1">
+                    {{ formatTime(message.timestamp) }}
+                  </div>
+                </div>
+                <div class="w-10 h-10 rounded flex-shrink-0 flex items-center justify-center text-white font-bold ring-2 ring-neon-cyan/50" style="background-color: #00E5FF">
+                  {{ currentUser?.displayName?.[0] || currentUser?.username?.[0]?.toUpperCase() || 'U' }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Input Area -->
+          <div class="border-t border-white/10 bg-bg-surface">
+            <div class="p-2 flex items-center gap-2 border-b border-white/10">
+              <button class="bg-white/5 hover:bg-white/10 p-2 rounded text-text-muted hover:text-neon-cyan transition-colors">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z" />
+                  <path
+                    d="M4.285 9.567a.5.5 0 0 1 .683.183A3.498 3.498 0 0 0 8 11.5a3.498 3.498 0 0 0 3.032-1.75.5.5 0 1 1 .866.5A4.498 4.498 0 0 1 8 12.5a4.498 4.498 0 0 1-3.898-2.25.5.5 0 0 1 .183-.683zM7 6.5C7 7.328 6.552 8 6 8s-1-.672-1-1.5S5.448 5 6 5s1 .672 1 1.5zm4 0c0 .828-.448 1.5-1 1.5s-1-.672-1-1.5S9.448 5 10 5s1 .672 1 1.5z"
+                  />
+                </svg>
+              </button>
+              <button class="bg-white/5 hover:bg-white/10 p-2 rounded text-text-muted hover:text-neon-cyan transition-colors">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 16 16">
+                  <path
+                    d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"
+                  />
+                  <path
+                    d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"
+                  />
+                </svg>
+              </button>
+            </div>
+            <div class="flex">
+              <textarea
+                v-model="messageInput"
+                class="flex-1 p-3 resize-none focus:outline-none bg-transparent text-text-primary placeholder-text-muted"
+                rows="4"
+                placeholder="想吐点什么槽？ (Enter 发送)"
+                @keydown.enter.exact.prevent="sendMessage"
+                @keydown.enter.shift.exact="messageInput += '\n'"
+              ></textarea>
+              <div class="flex items-end p-2">
+                <button
+                  @click="sendMessage"
+                  :disabled="!messageInput.trim()"
+                  class="px-4 py-2 rounded text-white transition-all bg-neon-cyan/10 border border-neon-cyan hover:bg-neon-cyan/20 hover:shadow-[0_0_20px_rgba(0,229,255,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  发送
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- No Session Selected -->
+        <div v-else class="flex-1 flex items-center justify-center text-text-muted">
+          <div class="text-center">
+            <svg class="w-20 h-20 mx-auto mb-4 opacity-30" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"/>
+            </svg>
+            <p class="text-lg">连个说话的人都没有，真是悲哀。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div
+      v-if="showProfileModal"
+      class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50"
+      @click.self="showProfileModal = false"
+    >
+      <div class="glass-panel border border-white/10 shadow-2xl shadow-neon-cyan/5 rounded-lg p-6 w-96 max-h-[90vh] overflow-y-auto">
+        <h3 class="text-lg font-medium mb-4 text-text-primary">你的真面目</h3>
+        <div class="space-y-4">
+          <!-- 头像上传 -->
+          <div class="flex flex-col items-center gap-3">
+            <div class="relative">
+              <img
+                v-if="currentUser?.avatar"
+                :src="currentUser.avatar"
+                alt="头像"
+                class="w-24 h-24 rounded-full object-cover border-3 border-gray-200"
+              />
+              <div
+                v-else
+                class="w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold ring-2 ring-neon-cyan/50"
+                style="background-color: #00E5FF"
+              >
+                {{ userInitial }}
+              </div>
+              <!-- 上传按钮覆盖层 -->
+              <label
+                class="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 hover:opacity-100 cursor-pointer transition-opacity"
+              >
+                <svg class="w-8 h-8 text-neon-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <input
+                  type="file"
+                  accept="image/*"
+                  class="hidden"
+                  @change="handleAvatarUpload"
+                  :disabled="uploadingAvatar"
+                />
+              </label>
+            </div>
+            <div v-if="uploadingAvatar" class="text-sm text-neon-cyan">上传中...</div>
+            <button
+              v-else
+              @click="triggerAvatarUpload"
+              class="text-sm text-neon-cyan hover:text-neon-cyan/80 transition-colors"
+            >
+              换张皮
+            </button>
+          </div>
+
+          <!-- 用户名（不可修改） -->
+          <div>
+            <label class="block text-sm font-medium text-text-muted mb-1">用户名</label>
+            <div class="px-3 py-2 bg-[#1E1E24] rounded text-sm text-text-muted">
+              {{ currentUser?.username }}
+            </div>
+          </div>
+
+          <!-- 昵称（可编辑） -->
+          <div>
+            <label class="block text-sm font-medium text-text-muted mb-1">昵称</label>
+            <input
+              v-model="editForm.displayName"
+              type="text"
+              class="w-full px-3 py-2 bg-[#1E1E24] border border-white/10 rounded text-text-primary placeholder-text-muted focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan"
+              placeholder="你想叫什么？"
+            />
+          </div>
+
+          <!-- 手机号（可编辑） -->
+          <div>
+            <label class="block text-sm font-medium text-text-muted mb-1">手机号</label>
+            <input
+              v-model="editForm.phone"
+              type="tel"
+              class="w-full px-3 py-2 bg-[#1E1E24] border border-white/10 rounded text-text-primary placeholder-text-muted focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan"
+              placeholder="你的呼机号"
+            />
+          </div>
+
+          <!-- 用户 ID -->
+          <div>
+            <label class="block text-sm font-medium text-text-muted mb-1">用户 ID</label>
+            <div class="px-3 py-2 bg-[#1E1E24] rounded text-sm text-text-muted break-all">
+              {{ currentUser?.id }}
+            </div>
+          </div>
+
+          <!-- 操作按钮 -->
+          <div class="flex gap-2 pt-2">
+            <button
+              @click="handleSaveProfile"
+              :disabled="savingProfile"
+              class="flex-1 px-4 py-2 bg-neon-cyan/10 border border-neon-cyan text-neon-cyan rounded hover:bg-neon-cyan/20 hover:shadow-[0_0_20px_rgba(0,229,255,0.3)] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            >
+              {{ savingProfile ? '保存中...' : '勉强保存' }}
+            </button>
+            <button
+              @click="handleLogout"
+              class="flex-1 px-4 py-2 bg-alert-red/10 border border-alert-red text-alert-red rounded hover:bg-alert-red/20 transition-all"
+            >
+              这就怂了要跑路？
+            </button>
+          </div>
+          <button
+            @click="showProfileModal = false"
+            class="w-full px-4 py-2 bg-white/5 text-text-muted rounded hover:bg-white/10 transition-colors"
+          >
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div
+      v-if="showSettingsModal"
+      class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50"
+      @click.self="showSettingsModal = false"
+    >
+      <div class="glass-panel border border-white/10 shadow-2xl shadow-neon-cyan/5 rounded-lg p-6 w-96">
+        <h3 class="text-lg font-medium mb-4 text-text-primary">设置</h3>
+        <div class="space-y-2">
+          <button
+            @click="showProfileModal = true; showSettingsModal = false"
+            class="w-full px-4 py-3 text-left hover:bg-white/5 rounded flex items-center gap-3 text-text-primary hover:text-neon-cyan transition-colors"
+          >
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" />
+              <path
+                fill-rule="evenodd"
+                d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"
+              />
+            </svg>
+            <span>个人信息</span>
+          </button>
+          <button
+            @click="handleLogout"
+            class="w-full px-4 py-3 text-left hover:bg-alert-red/10 rounded flex items-center gap-3 text-alert-red transition-colors"
+          >
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 16 16">
+              <path
+                fill-rule="evenodd"
+                d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"
+              />
+              <path
+                fill-rule="evenodd"
+                d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"
+              />
+            </svg>
+            <span>退出登录</span>
+          </button>
+        </div>
+        <div class="mt-4">
+          <button
+            @click="showSettingsModal = false"
+            class="w-full px-4 py-2 bg-white/5 text-text-muted rounded hover:bg-white/10 transition-colors"
+          >
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Message Context Menu -->
+    <div
+      v-if="showContextMenu"
+      class="fixed glass-panel border border-white/10 rounded-lg shadow-lg py-1 z-50"
+      :style="{ top: contextMenuY + 'px', left: contextMenuX + 'px' }"
+      @click="showContextMenu = false"
+    >
+      <button
+        @click="handleDeleteMessage(selectedMessageId)"
+        class="w-full px-4 py-2 text-left hover:bg-alert-red/10 text-alert-red flex items-center gap-2 transition-colors"
+      >
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+          <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+        </svg>
+        删除消息
+      </button>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { useSessionStore } from '@/entities/session/model/useSessionStore'
+import { useMessageStore } from '@/entities/message/model/useMessageStore'
+import { useAuthStore } from '@/entities/user/model/useAuthStore'
+import { useNetworkStore } from '@/entities/network/model/useNetworkStore'
+import { useContactStore } from '@/entities/contact/model/useContactStore'
+import { sessionApi } from '@/shared/api/session'
+import { websocketService } from '@/shared/api/websocket'
+import Sidebar from '@/widgets/sidebar/Sidebar.vue'
+import SessionList from '@/widgets/sessionList/SessionList.vue'
+import ContactsPage from '@/pages/contacts/ContactsPage.vue'
+import type { Contact } from '@/entities/contact/model/useContactStore'
+
+const router = useRouter()
+const sessionStore = useSessionStore()
+const messageStore = useMessageStore()
+const authStore = useAuthStore()
+const networkStore = useNetworkStore()
+const contactStore = useContactStore()
+
+const activeTab = ref<'messages' | 'contacts'>('messages')
+const messageInput = ref('')
+const messagesContainer = ref<HTMLElement>()
+const isDragging = ref(false)
+const showProfileModal = ref(false)
+const showSettingsModal = ref(false)
+const showContextMenu = ref(false)
+const contextMenuX = ref(0)
+const contextMenuY = ref(0)
+const selectedMessageId = ref<string | null>(null)
+
+// 头像上传和个人信息编辑
+const uploadingAvatar = ref(false)
+const savingProfile = ref(false)
+const editForm = ref({
+  displayName: '',
+  phone: ''
+})
+
+const activeSessionId = computed(() => sessionStore.activeSessionId)
+const activeSession = computed(() => sessionStore.activeSession)
+const currentUserId = computed(() => authStore.userId || 'current-user')
+const currentUser = computed(() => authStore.currentUser)
+const userInitial = computed(() => authStore.currentUser?.displayName?.[0] || 'U')
+
+const connectionStatusText = computed(() => {
+  switch (networkStore.connectionStatus) {
+    case 'CONNECTED':
+      return '已连接'
+    case 'RECONNECTING':
+      return '重连中...'
+    case 'DISCONNECTED':
+      return '未连接'
+    default:
+      return ''
+  }
+})
+
+const currentMessages = computed(() => {
+  console.log('========================================')
+  console.log('🔄 [currentMessages] computed 被触发')
+  console.log('🔄 [currentMessages] activeSessionId:', activeSessionId.value)
+  
+  if (!activeSessionId.value) {
+    console.log('⚠️ [currentMessages] 没有活动会话，返回空数组')
+    console.log('========================================')
+    return []
+  }
+  
+  console.log('📥 [currentMessages] 从 messageStore 获取消息...')
+  const messages = messageStore.getMessages(activeSessionId.value)
+  
+  console.log('📊 [currentMessages] 获取到的消息数量:', messages.length)
+  console.log('📊 [currentMessages] messageStore.messagesMap:', Object.keys(messageStore.messagesMap))
+  console.log('📊 [currentMessages] 当前会话的消息:', messageStore.messagesMap[activeSessionId.value]?.length || 0)
+  
+  const authStore = useAuthStore()
+  console.log('📨 [currentMessages] 消息详情:', {
+    sessionId: activeSessionId.value,
+    currentUserId: authStore.userId,
+    messageCount: messages.length,
+    messages: messages.map(m => ({
+      id: m.id,
+      senderId: m.senderId,
+      currentUserId: authStore.userId,
+      isMine: m.senderId === authStore.userId,
+      content: m.content ? m.content.substring(0, 30) : '[空内容]',
+      timestamp: m.timestamp
+    }))
+  })
+  
+  console.log('========================================')
+  return messages
+})
+
+const formatTime = (timestamp: string): string => {
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  
+  // 1分钟内
+  if (diff < 60000) {
+    return '刚刚'
+  }
+  
+  // 1小时内
+  if (diff < 3600000) {
+    return `${Math.floor(diff / 60000)}分钟前`
+  }
+  
+  // 今天
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  }
+  
+  // 昨天
+  const yesterday = new Date(now)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (date.toDateString() === yesterday.toDateString()) {
+    return '昨天 ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  }
+  
+  // 更早
+  return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) + ' ' + 
+         date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
+
+const getDisplayName = (userId: string): string => {
+  // 如果是当前会话，使用会话名称的首字母
+  if (activeSession.value) {
+    return activeSession.value.name.substring(0, 2).toUpperCase()
+  }
+  // 否则使用用户ID的前两位
+  return userId ? userId.substring(0, 2).toUpperCase() : '?'
+}
+
+const handleSwitchTab = (tab: 'messages' | 'contacts'): void => {
+  activeTab.value = tab
+}
+
+const handleSelectContact = async (contact: Contact): Promise<void> => {
+  console.log('📞 选择联系人，创建会话:', contact)
+
+  // 验证联系人数据
+  if (!contact.userId) {
+    console.error('❌ 联系人缺少 userId，无法创建会话:', contact)
+    alert('联系人数据错误，无法创建会话')
+    return
+  }
+
+  try {
+    // 创建或获取与该联系人的私聊会话
+    console.log('🔗 调用 sessionApi.createPrivate，参数:', { targetUserId: contact.userId })
+    const result = await sessionApi.createPrivate({ targetUserId: contact.userId })
+    console.log('✅ 会话创建成功:', result)
+
+    // 重新加载会话列表
+    await sessionStore.loadSessions()
+
+    // 切换到消息标签
+    activeTab.value = 'messages'
+
+    // 选择该会话
+    sessionStore.setActiveSession(result.sessionId)
+  } catch (error) {
+    console.error('❌ 创建会话失败:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    alert('创建会话失败: ' + errorMessage)
+  }
+}
+
+const handleLogout = (): void => {
+  console.log('👋 退出登录...')
+
+  // 清理 WebSocket 连接
+  try {
+    websocketService.disconnect()
+  } catch (error) {
+    console.warn('WebSocket 断开失败:', error)
+  }
+
+  // 清理认证信息
+  authStore.logout()
+
+  // 关闭弹窗
+  showProfileModal.value = false
+  showSettingsModal.value = false
+
+  // 跳转到登录页
+  router.push('/login')
+
+  console.log('✅ 已退出登录')
+}
+
+// 触发头像上传
+const triggerAvatarUpload = () => {
+  const input = document.querySelector('input[type="file"]') as HTMLInputElement
+  if (input) {
+    input.click()
+  }
+}
+
+// 处理头像上传
+const handleAvatarUpload = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  
+  if (!file) return
+
+  // 验证文件类型
+  if (!file.type.startsWith('image/')) {
+    alert('请选择图片文件')
+    return
+  }
+
+  // 验证文件大小（5MB）
+  if (file.size > 5 * 1024 * 1024) {
+    alert('图片大小不能超过5MB')
+    return
+  }
+
+  uploadingAvatar.value = true
+
+  try {
+    const { userApi } = await import('@/shared/api/user')
+    const result = await userApi.uploadAvatar(file)
+    
+    console.log('✅ 头像上传成功:', result.avatarUrl)
+    
+    // 刷新用户信息
+    await authStore.fetchUserInfo()
+    
+    alert('头像上传成功！')
+  } catch (error: any) {
+    console.error('❌ 头像上传失败:', error)
+    alert('头像上传失败: ' + (error.message || '未知错误'))
+  } finally {
+    uploadingAvatar.value = false
+    // 清空input，允许重复上传同一文件
+    target.value = ''
+  }
+}
+
+// 保存个人信息
+const handleSaveProfile = async () => {
+  if (!editForm.value.displayName.trim()) {
+    alert('昵称不能为空')
+    return
+  }
+
+  savingProfile.value = true
+
+  try {
+    const { userApi } = await import('@/shared/api/user')
+    await userApi.update({
+      displayName: editForm.value.displayName,
+      phone: editForm.value.phone || undefined
+    })
+    
+    console.log('✅ 个人信息更新成功')
+    
+    // 刷新用户信息
+    await authStore.fetchUserInfo()
+    
+    alert('个人信息更新成功！')
+  } catch (error: any) {
+    console.error('❌ 个人信息更新失败:', error)
+    alert('更新失败: ' + (error.message || '未知错误'))
+  } finally {
+    savingProfile.value = false
+  }
+}
+
+// 监听个人信息模态框打开，初始化表单
+watch(showProfileModal, (newVal) => {
+  if (newVal && currentUser.value) {
+    editForm.value.displayName = currentUser.value.displayName || currentUser.value.username
+    editForm.value.phone = currentUser.value.phone || ''
+  }
+})
+
+
+const minimizeWindow = async (): Promise<void> => {
+  await window.api.window.minimize()
+}
+
+const maximizeWindow = async (): Promise<void> => {
+  await window.api.window.maximize()
+}
+
+const closeWindow = async (): Promise<void> => {
+  await window.api.window.close()
+}
+
+const selectSession = async (sessionId: string): Promise<void> => {
+  console.log('========================================')
+  console.log('🎯 [selectSession] 选择会话')
+  console.log('🎯 [selectSession] 会话ID:', sessionId)
+  console.log('🎯 [selectSession] 当前时间:', new Date().toISOString())
+  
+  console.log('📝 [selectSession] 设置活动会话...')
+  sessionStore.setActiveSession(sessionId)
+  console.log('✅ [selectSession] 活动会话已设置')
+  
+  console.log('📥 [selectSession] 开始加载消息...')
+  const result = await messageStore.loadMessages(sessionId)
+  
+  if (result.success) {
+    console.log('✅ [selectSession] 消息加载成功')
+    const messages = messageStore.getMessages(sessionId)
+    console.log('📊 [selectSession] 当前消息数量:', messages.length)
+  } else {
+    console.error('❌ [selectSession] 消息加载失败:', result.error)
+  }
+  
+  // 标记对方发送的未读消息为已读
+  const authStore = useAuthStore()
+  const messages = messageStore.getMessages(sessionId)
+  console.log('📋 [selectSession] 检查未读消息...')
+  console.log('📋 [selectSession] 当前用户ID:', authStore.userId)
+  console.log('📋 [selectSession] 总消息数:', messages.length)
+  
+  const unreadMessages = messages.filter(m => 
+    !m.isRead && m.senderId !== authStore.userId
+  )
+  
+  console.log('📋 [selectSession] 未读消息数:', unreadMessages.length)
+
+  if (unreadMessages.length > 0) {
+    console.log('📋 [selectSession] 标记未读消息为已读...')
+    const messageIds = unreadMessages.map(m => m.id)
+    console.log('📋 [selectSession] 未读消息ID列表:', messageIds)
+    
+    try {
+      await messageStore.markBatchAsRead(sessionId, messageIds)
+      console.log('✅ [selectSession] 未读消息已标记为已读')
+    } catch (error) {
+      console.error('❌ [selectSession] 标记已读失败:', error)
+    }
+  } else {
+    console.log('ℹ️ [selectSession] 没有未读消息需要标记')
+  }
+  
+  // 滚动到底部
+  nextTick(() => {
+    scrollToBottom()
+  })
+  
+  console.log('========================================')
+}
+
+const sendMessage = async (): Promise<void> => {
+  if (!messageInput.value.trim() || !activeSessionId.value) return
+
+  await messageStore.sendMessage(activeSessionId.value, messageInput.value)
+  messageInput.value = ''
+
+  nextTick(() => {
+    scrollToBottom()
+  })
+}
+
+const scrollToBottom = (): void => {
+  if (messagesContainer.value) {
+    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+  }
+}
+
+const handleDragOver = (): void => {
+  isDragging.value = true
+}
+
+const handleDragLeave = (): void => {
+  isDragging.value = false
+}
+
+const handleFileDrop = async (e: DragEvent): Promise<void> => {
+  isDragging.value = false
+
+  if (!e.dataTransfer?.files || !activeSessionId.value) return
+
+  const files = Array.from(e.dataTransfer.files)
+  console.log('Files dropped:', files)
+
+  // TODO: Implement file encryption and upload
+  for (const file of files) {
+    console.log(`File: ${file.name}, Size: ${file.size}, Type: ${file.type}`)
+    // 1. Read file as ArrayBuffer
+    // 2. Encrypt with AES-GCM
+    // 3. Upload to server
+    // 4. Send message with file reference
+  }
+}
+
+/**
+ * 显示消息右键菜单
+ */
+const showMessageMenu = (event: MouseEvent, message: any): void => {
+  event.preventDefault()
+  selectedMessageId.value = message.id
+  contextMenuX.value = event.clientX
+  contextMenuY.value = event.clientY
+  showContextMenu.value = true
+}
+
+/**
+ * 删除单条消息
+ * 
+ * 注意：
+ * - 仅对当前用户隐藏，其他用户仍可见
+ * - 刷新页面后，消息仍然不可见（后端过滤）
+ */
+const handleDeleteMessage = async (messageId: string | null): Promise<void> => {
+  if (!messageId || !activeSessionId.value) return
+
+  // 关闭右键菜单
+  showContextMenu.value = false
+
+  // 确认删除
+  if (!confirm('确定删除这条消息吗？\n\n注意：删除后仅对你隐藏，其他人仍可见。')) {
+    return
+  }
+
+  try {
+    console.log('🗑️ 删除消息:', messageId)
+    const result = await messageStore.deleteSingleMessage(activeSessionId.value, messageId)
+    
+    if (result.success) {
+      console.log('✅ 消息已删除')
+    } else {
+      console.error('❌ 删除失败:', result.error)
+      alert('删除失败: ' + result.error)
+    }
+  } catch (error) {
+    console.error('❌ 删除消息异常:', error)
+    alert('删除失败')
+  }
+}
+
+// 点击其他地方关闭右键菜单
+const handleClickOutside = (): void => {
+  if (showContextMenu.value) {
+    showContextMenu.value = false
+  }
+}
+
+onMounted(async () => {
+  console.log('========================================')
+  console.log('📱 [onMounted] 主页面已挂载')
+  console.log('📱 [onMounted] 当前时间:', new Date().toISOString())
+  console.log('🔍 [onMounted] 检查 WebSocket 状态...')
+  console.log('📋 [onMounted] 连接状态:', networkStore.connectionStatus)
+  console.log('📋 [onMounted] Token:', authStore.token ? '已设置' : '未设置')
+  console.log('📋 [onMounted] 用户ID:', authStore.userId)
+  
+  // 如果 WebSocket 未连接，尝试重新连接
+  if (networkStore.connectionStatus !== 'CONNECTED') {
+    console.log('⚠️ [onMounted] WebSocket 未连接，尝试重新连接...')
+    websocketService.initialize()
+    websocketService.connect()
+  }
+  
+  try {
+    console.log('📋 [onMounted] 开始加载会话列表...')
+    await sessionStore.loadSessions()
+    console.log('✅ [onMounted] 会话列表加载完成')
+    
+    console.log('📬 [onMounted] 开始加载好友请求...')
+    await contactStore.loadPendingRequests()
+    console.log('✅ [onMounted] 好友请求加载完成，数量:', contactStore.pendingRequests.length)
+    
+    // 自动选择第一个会话并加载消息
+    const sessions = sessionStore.sessions
+    console.log('📊 [onMounted] 会话数量:', sessions.length)
+    console.log('📊 [onMounted] 会话列表:', sessions.map(s => ({
+      id: s.id,
+      name: s.name,
+      unreadCount: s.unreadCount,
+      lastMessageTime: s.lastMessageTime
+    })))
+    
+    if (sessions.length > 0) {
+      const firstSession = sessions[0]
+      console.log('🎯 [onMounted] 准备自动选择第一个会话')
+      console.log('🎯 [onMounted] 会话ID:', firstSession.id)
+      console.log('🎯 [onMounted] 会话名称:', firstSession.name)
+      console.log('🎯 [onMounted] 未读数:', firstSession.unreadCount)
+      
+      await selectSession(firstSession.id)
+      console.log('✅ [onMounted] 会话选择完成')
+    } else {
+      console.warn('⚠️ [onMounted] 没有会话可选择')
+    }
+  } catch (error) {
+    console.error('========================================')
+    console.error('❌ [onMounted] 加载会话列表失败')
+    console.error('❌ [onMounted] 错误信息:', error)
+    console.error('❌ [onMounted] 错误堆栈:', error?.stack)
+    console.error('========================================')
+    // 如果后端未启动，使用 Mock 数据
+    console.log('提示：请确保后端服务已启动在 http://localhost:8080')
+  }
+
+  // 监听点击事件，关闭右键菜单
+  document.addEventListener('click', handleClickOutside)
+  
+  console.log('========================================')
+})
+
+// 组件卸载时移除事件监听
+import { onUnmounted } from 'vue'
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
+
+watch(currentMessages, () => {
+  nextTick(() => {
+    scrollToBottom()
+  })
+})
+</script>
