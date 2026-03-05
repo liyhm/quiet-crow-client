@@ -43,6 +43,7 @@ jobs:
           path: |
             dist/*.dmg
             dist/*.zip
+            dist/*latest*.yml
           retention-days: 30
       
       - name: Release (if tag)
@@ -52,5 +53,6 @@ jobs:
           files: |
             dist/*.dmg
             dist/*.zip
+            dist/*latest*.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

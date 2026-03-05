@@ -9,11 +9,11 @@ let mainWindow: BrowserWindow | null = null
 
 // 配置自动更新
 function setupAutoUpdater(): void {
-  // 设置更新服务器地址（需要替换为你的服务器地址）
-  // autoUpdater.setFeedURL({
-  //   provider: 'generic',
-  //   url: 'https://your-server.com/updates'
-  // })
+  // 设置更新服务器地址
+  autoUpdater.setFeedURL({
+    provider: 'generic',
+    url: 'http://159.75.182.85/updates/'
+  })
 
   // 禁用自动下载，改为手动控制
   autoUpdater.autoDownload = false
