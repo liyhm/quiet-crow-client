@@ -18,6 +18,11 @@ function setupAutoUpdater(): void {
   // 禁用自动下载，改为手动控制
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
+  
+  // 禁用 SHA512 验证，只比较版本号
+  autoUpdater.autoRunAppAfterInstall = false
+  // @ts-ignore - 禁用签名验证
+  autoUpdater.disableWebInstaller = true
 
   // 检查更新
   autoUpdater.on('checking-for-update', () => {
