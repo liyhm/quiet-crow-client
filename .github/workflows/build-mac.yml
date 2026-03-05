@@ -36,6 +36,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
+      - name: Rename update files
+        run: |
+          cd dist
+          # 查找并确认 yml 文件
+          if [ -f "quiet-latest-mac.yml" ]; then
+            echo "✅ 已生成 quiet-latest-mac.yml"
+          else
+            echo "⚠️  未找到 quiet-latest-mac.yml"
+          fi
+          echo "=== 最终文件列表 ==="
+          ls -la *.yml || echo "没有 yml 文件"
+      
       - name: List generated files
         run: |
           echo "=== Files in dist directory ==="

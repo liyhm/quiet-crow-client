@@ -12,8 +12,8 @@ function setupAutoUpdater(): void {
   // 设置更新服务器地址
   autoUpdater.setFeedURL({
     provider: 'generic',
-    url: 'http://159.75.182.85/updates/',
-    channel: 'quiet'  // 明确指定 channel，会查找 quiet-latest.yml 和 quiet-latest-mac.yml
+    url: 'http://159.75.182.85/updates/quiet/',
+    channel: 'quiet-latest'
   })
 
   // 禁用自动下载，改为手动控制
@@ -29,7 +29,7 @@ function setupAutoUpdater(): void {
   // 检查更新
   autoUpdater.on('checking-for-update', () => {
     console.log('🔍 正在检查更新...')
-    console.log('📡 更新服务器:', 'http://159.75.182.85/updates/')
+    console.log('📡 更新服务器:', 'http://159.75.182.85/updates/quiet/')
     sendUpdateMessage('checking-for-update')
   })
 
@@ -62,7 +62,14 @@ function setupAutoUpdater(): void {
     console.error('❌ 更新错误:', error)
     console.error('错误详情:', error.message)
     console.error('错误堆栈:', error.stack)
-    sendUpdateMessage('update-error', { message: error.message })
+    
+    // 如果是 404 错误，说明没有更新文件，当作已是最新版本
+    if (error.message && error.message.includes('404')) {
+      console.log('ℹ️ 未找到更新文件，当前已是最新版本')
+      sendUpdateMessage('update-not-available', { version: app.getVersion() })
+    } else {
+      sendUpdateMessage('update-error', { message: error.message })
+    }
   })
 }
 
@@ -294,7 +301,7 @@ app.whenReady().then(() => {
   ipcMain.handle('updater:check', async () => {
     try {
       console.log('🔍 手动检查更新...')
-      console.log('📡 更新服务器:', 'http://159.75.182.85/updates/')
+      console.log('📡 更新服务器:', 'http://159.75.182.85/updates/quiet/')
       console.log('📦 当前版本:', app.getVersion())
       
       // 添加超时处理
